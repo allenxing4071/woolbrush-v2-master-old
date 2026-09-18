@@ -1,0 +1,63 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+
+# Tauri
+src-tauri/target/
+src-tauri/gen/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Env & secrets
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Lock files (keep pnpm-lock.yaml, ignore others)
+package-lock.json
+yarn.lock
+
+# Temp files
+*.tmp
+*~
+
+# Database
+src-tauri/data/*.db
+src-tauri/data/*.db-journal
+src-tauri/data/*.db-wal
+src-tauri/data/*.db-shm
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+
+# Review logs (JSONL)
+data/review/
+
+# DuMate session snapshots
+.dumate/
+
+# Personal trade exports
+data/*.xlsx
+
+# TS incremental build info
+tsconfig.tsbuildinfo
+src-tauri/data/review/

@@ -1,0 +1,74 @@
+[package]
+name = "woolbrush-v2"
+version = "2.1.0"
+description = "Polymarket 气温羊毛刷 V2 - 跨平台桌面应用"
+authors = ["四哥"]
+edition = "2021"
+
+[lib]
+name = "woolbrush_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# Tauri
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Database
+sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "macros"] }
+
+# HTTP client
+reqwest = { version = "0.12", default-features = false, features = ["json", "native-tls"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Regex
+regex = "1"
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+chrono-tz = "0.10"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Error handling
+thiserror = "2"
+anyhow = "1"
+
+# WebSocket
+tokio-tungstenite = { version = "0.23", features = ["native-tls"] }
+futures-util = "0.3"
+tokio-native-tls = "0.3"
+native-tls = "0.2"
+url = "2"
+
+# Ethereum signing (alloy signer only — no RPC transport, no rustls/ring)
+alloy = { version = "2", default-features = false, features = ["signer-local", "signers"] }
+
+# CLOB L2 API authentication
+hmac = "0.12"
+sha2 = "0.10"
+base64 = "0.22"
+
+# UUID for trade records
+uuid = { version = "1", features = ["v4", "serde"] }
+
+# AES-256-GCM for private key encryption at rest
+aes-gcm = "0.10"
+
+# URL encoding for API query params
+urlencoding = "2"
+
+# Global allocator: mimalloc replaces Windows default heap to prevent
+# heap fragmentation from millions of small allocations (WS price updates)
+mimalloc = "0.1"

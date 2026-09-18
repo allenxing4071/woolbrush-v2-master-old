@@ -1,0 +1,66 @@
+city-days: 1938  (no_event 0, unresolved 0)
+candidates in ask range: 5405  | params sl=0.5 ask=[0.95,0.98] notional=100.0
+
+variant              trades  wins losses   win%       pnl pnl/trade  avgwin SL exits
+old_llm                 834   812     22   97.4    919.57     1.103    3.19       22
+live_h15_p1_m0          890   869     21   97.6   1208.19     1.358    3.29       21
+h16_p1_m0               538   529      9   98.3    974.83     1.812    3.22        9
+h16_p1_m0.5             513   507      6   98.8   1114.10     2.172    3.20        6
+h16_p1_m1               473   467      6   98.7    977.07     2.066    3.18        6
+h16_p2_m0               232   227      5   97.8    312.77     1.348    3.13        5
+h17_p1_m0               257   254      3   98.8    543.93     2.116    3.13        3
+h17_p1_m0.5             244   242      2   99.2    602.60     2.470    3.13        2
+h17_p1_m1               229   227      2   99.1    556.62     2.431    3.14        2
+h16_p1_m1_pre4          447   441      6   98.7    901.88     2.018    3.20        6
+postonly_h16_p1_m1      443   437      6   98.6    889.52     2.008    3.20        6
+hybrid_h16p2_h17p1_m0.5    367   364      3   99.2    912.43     2.486    3.13        3
+llm_AND_h16_p1_m0.5     240   239      1   99.6    671.70     2.799    3.05        1
+
+== h16_p1_m1 losing trades ==
+  2026-08-22 chengdu        32°C           h=16 ask=0.95 st_high=29.0 met=30.6 mk=30.0 final_obs=32.0 exit=0.395 SL pnl=-58.42
+  2026-09-02 karachi        33°C           h=16 ask=0.965 st_high=32.0 met=30.9 mk=32.0 final_obs=33.0 exit=0.011 SL pnl=-98.86
+  2026-08-19 munich         31°C           h=16 ask=0.97 st_high=28.0 met=29.7 mk=30.0 final_obs=31.0 exit=0.032 SL pnl=-96.7
+  2026-09-15 singapore      33°C           h=16 ask=0.97 st_high=32.0 met=31.7 mk=32.0 final_obs=33.0 exit=0.0 SL pnl=-99.95
+  2026-08-23 toronto        20°C           h=16 ask=0.98 st_high=19.0 met=18.8 mk=19.0 final_obs=20.0 exit=0.17 SL pnl=-82.65
+  2026-09-08 wuhan          35°C           h=16 ask=0.955 st_high=33.0 met=33.2 mk=34.0 final_obs=35.0 exit=0.255 SL pnl=-73.3
+
+== h16_p1_m1 by hour ==
+  11:00  n=  15  losses=  0  pnl=   47.35
+  12:00  n=   6  losses=  0  pnl=   15.88
+  13:00  n=   7  losses=  0  pnl=   19.72
+  14:00  n=   1  losses=  0  pnl=    2.04
+  15:00  n=   1  losses=  0  pnl=    2.56
+  16:00  n= 310  losses=  6  pnl=  459.74
+  17:00  n= 133  losses=  0  pnl=  429.78
+
+== losing candidates (bucket eventually won) and whether gates opened them ==
+  losing candidates: 124 of 5405
+  old_llm            opened 19 of them
+  live_h15_p1_m0     opened 18 of them
+  h16_p1_m0          opened 8 of them
+  h16_p1_m0.5        opened 6 of them
+  h16_p1_m1          opened 6 of them
+  h16_p2_m0          opened 5 of them
+  h17_p1_m0          opened 3 of them
+  h17_p1_m0.5        opened 2 of them
+  h17_p1_m1          opened 2 of them
+  h16_p1_m1_pre4     opened 6 of them
+  postonly_h16_p1_m1 opened 6 of them
+  hybrid_h16p2_h17p1_m0.5 opened 3 of them
+  llm_AND_h16_p1_m0.5 opened 1 of them
+
+== YES on current-high bucket when temp falling (by price band) ==
+  ask [0.00,0.30) n=  349 win%=  8.3 EV/$1=-0.008
+  ask [0.30,0.50) n=   83 win%= 47.0 EV/$1=+0.073
+  ask [0.50,0.70) n=  132 win%= 56.1 EV/$1=-0.054
+  ask [0.70,0.85) n=  159 win%= 80.5 EV/$1=+0.018
+  ask [0.85,0.95) n=  208 win%= 88.9 EV/$1=-0.016
+  ask [0.95,1.01) n= 1510 win%= 99.2 EV/$1=-0.001
+
+== YES by hour (ask<0.9 only) ==
+  12:00 n= 147 win%= 23.8 EV/$1=-0.000
+  13:00 n= 151 win%= 36.4 EV/$1=-0.031
+  14:00 n= 191 win%= 46.1 EV/$1=-0.010
+  15:00 n= 138 win%= 50.0 EV/$1=-0.007
+  16:00 n= 108 win%= 55.6 EV/$1=+0.017
+  17:00 n=  71 win%= 47.9 EV/$1=+0.042

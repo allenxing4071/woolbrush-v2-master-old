@@ -1,0 +1,3 @@
+cache/
+out/*
+!out/summary_final.txt

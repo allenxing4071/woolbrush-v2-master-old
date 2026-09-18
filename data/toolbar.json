@@ -1,0 +1,11 @@
+{
+  "askMax": "0.980",
+  "askMin": "0.950",
+  "orderAmount": "5",
+  "orderMode": "percent",
+  "orderPercent": "10",
+  "scanInterval": "0.5",
+  "slAmount": "0.999",
+  "timeHour": "11",
+  "tpAmount": "0.500"
+}

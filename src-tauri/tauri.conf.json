@@ -1,0 +1,38 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicehash/tauri/dev/crates/tauri-config-schema/schema.json",
+  "productName": "WoolBrush V2",
+  "version": "2.1.0",
+  "identifier": "com.woolbrush.v2.app",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1685",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "WoolBrush v2.1.0",
+        "width": 1111,
+        "height": 888,
+        "resizable": true,
+        "minWidth": 1111,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; connect-src 'self' https://clob.polymarket.com https://gamma-api.polymarket.com https://data-api.polymarket.com https://polygon-bor-rpc.publicnode.com wss://ws-subscriptions-clob.polymarket.com https://api.open-meteo.com https://aviationweather.gov https://qianfan.baidubce.com; font-src 'self' data:"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ]
+  }
+}

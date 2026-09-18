@@ -1,0 +1,285 @@
+:root {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+    Ubuntu, Cantarell, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #e2e8f0;
+  background-color: #0d0d1a;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0d0d1a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* 数字翻牌动画 — 旧数字向上移动消失，新数字原地出现 */
+@keyframes flipIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes flipOut {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-50%);
+    opacity: 0;
+  }
+}
+
+.flip-slot {
+  display: inline-grid;
+  place-items: center;
+  width: 1ch;
+  font-family: "SF Mono", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", monospace;
+  vertical-align: baseline;
+  white-space: pre;
+}
+
+.flip-enter {
+  grid-area: 1 / 1;
+  animation: flipIn 0.4s ease forwards;
+}
+
+.flip-leave {
+  grid-area: 1 / 1;
+  animation: flipOut 0.4s ease forwards;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@keyframes fadeUpOut {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-15px);
+    opacity: 0;
+  }
+}
+
+@keyframes btnContentOut {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+}
+
+@keyframes btnContentIn {
+  0% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.btn-content-out {
+  animation: btnContentOut 0.2s ease forwards;
+}
+
+.btn-content-in {
+  animation: btnContentIn 0.2s ease forwards;
+}
+
+/* 交易 pending loading 旋转动画 */
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Toast 滑入动画 */
+@keyframes slideInRight {
+  0% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* 账户信息从右向左淡入 */
+@keyframes accountFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.account-fade-in {
+  opacity: 0;
+  animation: accountFadeIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* 数值变化淡入淡出 */
+@keyframes valueFadeOut {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes valueFadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.value-fade-out {
+  animation: valueFadeOut 0.2s ease forwards;
+}
+
+.value-fade-in {
+  animation: valueFadeIn 0.3s ease forwards;
+}
+
+/* 城市卡片渐入渐出动画 */
+@keyframes cityCardIn {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.city-card-in {
+  opacity: 0;
+  animation: cityCardIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* 城市卡片淡出 */
+@keyframes cityCardOut {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.97);
+  }
+}
+
+.city-card-out {
+  animation: cityCardOut 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* 温度档位 chip 渐入 */
+@keyframes chipIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.threshold-chip {
+  opacity: 0;
+  animation: chipIn 0.3s ease forwards;
+}
+
+/* 温度档位概率变化时背景闪烁（独立的 overlay 层，不干扰 chipIn 入场动画）*/
+@keyframes priceFlashOverlay {
+  0% {
+    opacity: 0.35;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.threshold-chip-flash-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 4px;
+  background: #3b82f6;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.threshold-chip-flash-overlay.flash-active {
+  animation: priceFlashOverlay 0.8s ease forwards;
+}
+
+/* 自动分析引擎：高亮行脉冲动画 */
+@keyframes analyzingPulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(251, 191, 36, 0.3), 0 0 16px rgba(251, 191, 36, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(251, 191, 36, 0.6), 0 0 32px rgba(251, 191, 36, 0.3);
+  }
+}
+
+.analyzing-glow {
+  animation: analyzingPulse 1.5s ease-in-out infinite;
+}
+
+

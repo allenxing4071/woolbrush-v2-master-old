@@ -1,6 +1,6 @@
 [package]
 name = "woolbrush-v2"
-version = "2.1.0"
+version = "2.3.0"
 description = "Polymarket 气温羊毛刷 V2 - 跨平台桌面应用"
 authors = ["四哥"]
 edition = "2021"

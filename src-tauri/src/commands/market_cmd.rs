@@ -256,6 +256,68 @@ pub async fn get_cached_prices(state: State<'_, AppState>) -> Result<Vec<CachedP
         .collect())
 }
 
+/// 盘口深度快照：单个 token 的档位价量
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DepthLevel {
+    pub price: f64,
+    pub size: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DepthSnapshot {
+    pub token_id: String,
+    /// 卖盘，价格升序。买 NO 时吃的就是这一侧
+    pub asks: Vec<DepthLevel>,
+    /// 买盘，价格降序。平仓时吃的是这一侧
+    pub bids: Vec<DepthLevel>,
+}
+
+/// 批量抓取盘口深度，供复盘日志记录
+///
+/// 回测长期缺失盘口深度数据：历史价格序列只有成交价，无法判断某个
+/// 档位在决策时点究竟能吃进多少钱。这个命令在每轮城市快照时把真实
+/// 盘口一并落盘，攒够样本后即可重跑带深度约束的回测。
+///
+/// `depth` 为每侧保留的档位数，默认 10 档（0 或负数按默认处理）。
+#[tauri::command]
+pub async fn fetch_depth_snapshot(
+    state: State<'_, AppState>,
+    token_ids: Vec<String>,
+    depth: Option<usize>,
+) -> Result<Vec<DepthSnapshot>, String> {
+    if token_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    let keep = depth.filter(|d| *d > 0).unwrap_or(10);
+
+    let clob = crate::infrastructure::clob::ClobClient::new();
+    let http = state.http.read().await;
+
+    let books = clob
+        .get_orderbooks(&http, &token_ids)
+        .await
+        .map_err(|e| format!("Fetch orderbooks failed: {}", e))?;
+
+    Ok(books
+        .into_iter()
+        .map(|(token_id, book)| DepthSnapshot {
+            token_id,
+            asks: book
+                .asks
+                .into_iter()
+                .take(keep)
+                .map(|e| DepthLevel { price: e.price, size: e.size })
+                .collect(),
+            bids: book
+                .bids
+                .into_iter()
+                .take(keep)
+                .map(|e| DepthLevel { price: e.price, size: e.size })
+                .collect(),
+        })
+        .collect())
+}
+
 /// Stop price stream — 关闭所有城市的 WS 连接
 #[tauri::command]
 pub async fn stop_price_stream(

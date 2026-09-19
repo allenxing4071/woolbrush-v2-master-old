@@ -190,10 +190,10 @@ export default function CitySelectorModal({
                 color: "#e2e8f0",
               }}
             >
-              City Filter
+              城市筛选
             </h2>
             <span style={{ fontSize: "12px", color: "#64748b" }}>
-              {selectedCount}/{cities.length} selected
+              已选 {selectedCount}/{cities.length}
             </span>
           </div>
           <button
@@ -221,7 +221,7 @@ export default function CitySelectorModal({
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search city..."
+            placeholder="搜索城市..."
             style={{
               flex: 1,
               padding: "8px 12px",
@@ -247,7 +247,7 @@ export default function CitySelectorModal({
               whiteSpace: "nowrap",
             }}
           >
-            {allChecked ? "All Selected" : "Select All"}
+            {allChecked ? "已全选" : "全选"}
           </button>
         </div>
 
@@ -428,7 +428,7 @@ export default function CitySelectorModal({
                         fontWeight: 600,
                       }}
                     >
-                      {isSaving ? "..." : "OK"}
+                      {isSaving ? "..." : "保存"}
                     </button>
                     <button
                       onClick={() => setEditingSlug(null)}
@@ -518,7 +518,7 @@ export default function CitySelectorModal({
                 fontSize: "13px",
               }}
             >
-              No cities found.
+              未找到城市
             </div>
           )}
         </div>
@@ -557,11 +557,11 @@ export default function CitySelectorModal({
                   <path d="M21 12a9 9 0 1 1-6.219-8.56" />
                 </svg>
               )}
-              {syncing ? "Syncing..." : "Sync from Polymarket"}
+              {syncing ? "同步中..." : "从 Polymarket 同步"}
             </button>
           ) : (
             <span style={{ fontSize: "11px", color: "#475569" }}>
-              Selections are saved automatically
+              选择会自动保存
             </span>
           )}
           <button
@@ -577,7 +577,7 @@ export default function CitySelectorModal({
               fontWeight: 600,
             }}
           >
-            Done
+            完成
           </button>
         </div>
       </div>

@@ -179,6 +179,74 @@ impl ClobClient {
         })
     }
 
+    /// 批量查询多个 token 的订单簿（POST /books）
+    ///
+    /// 用于复盘数据采集：一次请求拿到整个城市 11 个档位的盘口深度，
+    /// 避免 51 城 × 11 档逐个调 /book 造成的请求风暴。
+    /// 返回 (token_id, OrderBook) 列表；接口未返回某个 token 时该项缺失。
+    pub async fn get_orderbooks(
+        &self,
+        http: &reqwest::Client,
+        token_ids: &[String],
+    ) -> Result<Vec<(String, OrderBook)>, AppError> {
+        if token_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let body: Vec<serde_json::Value> = token_ids
+            .iter()
+            .map(|t| serde_json::json!({ "token_id": t }))
+            .collect();
+
+        let resp = http
+            .post(format!("{}/books", BASE_URL))
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| AppError::Network(e.to_string()))?;
+
+        let value = resp
+            .json::<serde_json::Value>()
+            .await
+            .map_err(|e| AppError::Api(e.to_string()))?;
+
+        let arr = value.as_array().cloned().unwrap_or_default();
+        let mut out = Vec::with_capacity(arr.len());
+        for book in arr {
+            let token_id = match book.get("asset_id").and_then(|v| v.as_str()) {
+                Some(s) => s.to_string(),
+                None => continue,
+            };
+            let parse_side = |key: &str| -> Vec<OrderBookEntry> {
+                book.get(key)
+                    .and_then(|v| v.as_array())
+                    .map(|entries| {
+                        entries
+                            .iter()
+                            .filter_map(|e| {
+                                let price = e
+                                    .get("price")
+                                    .and_then(|p| p.as_str())
+                                    .and_then(|s| s.parse::<f64>().ok())?;
+                                let size = e
+                                    .get("size")
+                                    .and_then(|p| p.as_str())
+                                    .and_then(|s| s.parse::<f64>().ok())
+                                    .unwrap_or(0.0);
+                                Some(OrderBookEntry { price, size })
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default()
+            };
+            let mut bids = parse_side("bids");
+            let mut asks = parse_side("asks");
+            bids.sort_by(|a, b| b.price.partial_cmp(&a.price).unwrap_or(std::cmp::Ordering::Equal));
+            asks.sort_by(|a, b| a.price.partial_cmp(&b.price).unwrap_or(std::cmp::Ordering::Equal));
+            out.push((token_id, OrderBook { bids, asks }));
+        }
+        Ok(out)
+    }
+
     /// 查询市场是否为 NegRisk
     pub async fn get_neg_risk(
         &self,

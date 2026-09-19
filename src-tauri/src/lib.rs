@@ -92,6 +92,7 @@ pub fn run() {
             market_cmd::backfill_prices,
             market_cmd::get_cached_prices,
             market_cmd::stop_price_stream,
+            market_cmd::fetch_depth_snapshot,
             market_cmd::check_date_rollover,
             // Trade
             trade_cmd::open_position,

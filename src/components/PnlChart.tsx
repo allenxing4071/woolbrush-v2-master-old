@@ -190,7 +190,7 @@ export function PnlChart({ refreshTick, portfolioValue, onReset, orderMode }: { 
       <button
         onClick={handleReset}
         disabled={resetting}
-        title={`Reset: clear trades and set current portfolio as principal${principal != null ? ` ($${principal.toFixed(2)})` : ""}`}
+        title={`清空所有交易记录，并把当前持仓市值设为新的本金基准${principal != null ? `（当前 $${principal.toFixed(2)}）` : ""}`}
         style={{
           background: "none",
           border: "none",
@@ -326,7 +326,7 @@ export function PnlChart({ refreshTick, portfolioValue, onReset, orderMode }: { 
             letterSpacing: "0.8px",
             fontWeight: 600,
           }}>
-            {hovered !== null ? chartData[hovered].date.replace("-", "/") : "30D"}
+            {hovered !== null ? chartData[hovered].date.replace("-", "/") : "30天"}
           </span>
           <span style={{
             fontSize: "15px",

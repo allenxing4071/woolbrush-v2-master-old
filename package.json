@@ -1,7 +1,7 @@
 {
   "name": "woolbrush-v2",
   "private": true,
-  "version": "2.1.0",
+  "version": "2.3.0",
   "type": "module",
   "description": "Polymarket 气温羊毛刷 V2 - 跨平台桌面应用",
   "scripts": {

@@ -247,8 +247,8 @@ export default function SettingsModal({ open, onClose }: Props) {
         },
       });
       const msg = result.success
-        ? `Connection successful${result.pusd_balance != null ? ` | pUSD: $${result.pusd_balance.toFixed(2)}` : ""}`
-        : result.message || "Connection failed";
+        ? `连接成功${result.pusd_balance != null ? ` | pUSD: $${result.pusd_balance.toFixed(2)}` : ""}`
+        : result.message || "连接失败";
       showToast(result.success, msg);
     } catch (e) {
       showToast(false, String(e));
@@ -353,7 +353,7 @@ export default function SettingsModal({ open, onClose }: Props) {
               color: "#e2e8f0",
             }}
           >
-            Settings
+            设置
           </h2>
           <button
             onClick={onClose}
@@ -395,7 +395,7 @@ export default function SettingsModal({ open, onClose }: Props) {
                 marginBottom: "-1px",
               }}
             >
-              {tab === "prompt" ? "Prompt" : tab.charAt(0).toUpperCase() + tab.slice(1)}
+              {tab === "account" ? "账户" : tab === "system" ? "系统" : tab === "message" ? "消息" : "Prompt"}
             </button>
           ))}
         </div>
@@ -407,7 +407,7 @@ export default function SettingsModal({ open, onClose }: Props) {
               {/* Signer Address */}
               <div>
                 <label style={labelStyle}>
-                  Signer Address
+                  签名地址
                 </label>
                 <input
                   type="text"
@@ -421,7 +421,7 @@ export default function SettingsModal({ open, onClose }: Props) {
               {/* Signer Address Private Key */}
               <div>
                 <label style={labelStyle}>
-                  Signer Address Private Key
+                  签名私钥
                 </label>
                 <input
                   type="password"
@@ -435,7 +435,7 @@ export default function SettingsModal({ open, onClose }: Props) {
 
               {/* Funder 地址 */}
               <div>
-                <label style={labelStyle}>Funder Address</label>
+                <label style={labelStyle}>资金地址</label>
                 <input
                   type="text"
                   value={form.funder_address}
@@ -451,7 +451,7 @@ export default function SettingsModal({ open, onClose }: Props) {
             <>
               {/* 代理 URL */}
               <div>
-                <label style={labelStyle}>Proxy URL</label>
+                <label style={labelStyle}>代理地址</label>
                 <input
                   type="text"
                   value={form.proxy_url}
@@ -463,7 +463,7 @@ export default function SettingsModal({ open, onClose }: Props) {
 
               {/* LLM Provider 选择器 */}
               <div>
-                <label style={labelStyle}>LLM Provider</label>
+                <label style={labelStyle}>LLM 服务商</label>
                 <div style={{ display: "flex", gap: "8px" }}>
                   {(["qianfan", "bailian", "ollama"] as const).map((p) => (
                     <button
@@ -480,7 +480,7 @@ export default function SettingsModal({ open, onClose }: Props) {
                         cursor: "pointer",
                       }}
                     >
-                      {p === "qianfan" ? "Qianfan" : p === "bailian" ? "Bailian" : "Ollama"}
+                      {p === "qianfan" ? "千帆" : p === "bailian" ? "百炼" : "Ollama"}
                     </button>
                   ))}
                 </div>
@@ -489,7 +489,7 @@ export default function SettingsModal({ open, onClose }: Props) {
               {/* 千帆 API Key（provider=qianfan 时显示） */}
               {form.llm_provider === "qianfan" && (
                 <div>
-                  <label style={labelStyle}>Qianfan API Key</label>
+                  <label style={labelStyle}>千帆 API Key</label>
                   <textarea
                     value={form.qianfan_api_key}
                     onChange={(e) => updateField("qianfan_api_key", e.target.value)}
@@ -504,7 +504,7 @@ export default function SettingsModal({ open, onClose }: Props) {
                     }}
                   />
                   <div style={{ fontSize: "11px", color: "#64748b", marginTop: "4px" }}>
-                    Multiple keys supported, one per line, used in round-robin
+                    支持多个 Key，每行一个，按轮询调用
                   </div>
                 </div>
               )}
@@ -513,7 +513,7 @@ export default function SettingsModal({ open, onClose }: Props) {
               {form.llm_provider === "bailian" && (
                 <>
                   <div>
-                    <label style={labelStyle}>Bailian API Key</label>
+                    <label style={labelStyle}>百炼 API Key</label>
                     <textarea
                       value={form.bailian_api_key}
                       onChange={(e) => updateField("bailian_api_key", e.target.value)}
@@ -528,11 +528,11 @@ export default function SettingsModal({ open, onClose }: Props) {
                       }}
                     />
                     <div style={{ fontSize: "11px", color: "#64748b", marginTop: "4px" }}>
-                      Multiple keys supported, one per line, used in round-robin
+                      支持多个 Key，每行一个，按轮询调用
                     </div>
                   </div>
                   <div>
-                    <label style={labelStyle}>Bailian Model</label>
+                    <label style={labelStyle}>Bailian 模型名</label>
                     <input
                       type="text"
                       value={form.bailian_model}
@@ -548,7 +548,7 @@ export default function SettingsModal({ open, onClose }: Props) {
               {form.llm_provider === "ollama" && (
                 <>
                   <div>
-                    <label style={labelStyle}>Ollama API Key</label>
+                    <label style={labelStyle}>Ollama API 密钥</label>
                     <textarea
                       value={form.ollama_api_key}
                       onChange={(e) => updateField("ollama_api_key", e.target.value)}
@@ -563,11 +563,11 @@ export default function SettingsModal({ open, onClose }: Props) {
                       }}
                     />
                     <div style={{ fontSize: "11px", color: "#64748b", marginTop: "4px" }}>
-                      Multiple keys supported, one per line, used in round-robin
+                      支持多个 Key，每行一个，按轮询调用
                     </div>
                   </div>
                   <div>
-                    <label style={labelStyle}>Ollama API URL</label>
+                    <label style={labelStyle}>Ollama 接口地址</label>
                     <input
                       type="text"
                       value={form.ollama_url}
@@ -577,7 +577,7 @@ export default function SettingsModal({ open, onClose }: Props) {
                     />
                   </div>
                   <div>
-                    <label style={labelStyle}>Ollama Model</label>
+                    <label style={labelStyle}>Ollama 模型名</label>
                     <input
                       type="text"
                       value={form.ollama_model}
@@ -606,7 +606,7 @@ export default function SettingsModal({ open, onClose }: Props) {
                     opacity: llmLoading ? 0.6 : 1,
                   }}
                 >
-                  {llmLoading ? "Testing LLM..." : "Test LLM"}
+                  {llmLoading ? "测试中..." : "测试 LLM 连接"}
                 </button>
               </div>
 
@@ -643,7 +643,7 @@ export default function SettingsModal({ open, onClose }: Props) {
                             {kr.success ? "\u2713" : "\u2717"}
                           </span>
                           <span style={{ color: kr.success ? "#86efac" : "#fca5a5" }}>
-                            Key {kr.key_index} ({kr.key_prefix}...): {kr.message}
+                            密钥 {kr.key_index} ({kr.key_prefix}...): {kr.message}
                           </span>
                         </div>
                       ))}
@@ -705,7 +705,7 @@ export default function SettingsModal({ open, onClose }: Props) {
             <>
               {/* 飞书 Webhook */}
               <div>
-                <label style={labelStyle}>Feishu Webhook</label>
+                <label style={labelStyle}>飞书 Webhook</label>
                 <input
                   type="text"
                   value={form.feishu_webhook}
@@ -717,7 +717,7 @@ export default function SettingsModal({ open, onClose }: Props) {
 
               {/* 飞书 Chat ID */}
               <div>
-                <label style={labelStyle}>Feishu Chat ID</label>
+                <label style={labelStyle}>飞书群 ID</label>
                 <input
                   type="text"
                   value={form.feishu_chat_id}
@@ -780,7 +780,7 @@ export default function SettingsModal({ open, onClose }: Props) {
                 transition: "opacity 2s ease-in-out",
               }}
             >
-              {"\u2713 "}Settings saved successfully
+              {"\u2713 "}设置保存成功
             </div>
           )}
         </div>
@@ -811,7 +811,7 @@ export default function SettingsModal({ open, onClose }: Props) {
                 fontWeight: 600,
               }}
             >
-              {testLoading ? "Testing..." : "Test Connection"}
+              {testLoading ? "测试连接中..." : "测试连接"}
             </button>
             )}
             <button
@@ -827,7 +827,7 @@ export default function SettingsModal({ open, onClose }: Props) {
                 fontWeight: 600,
               }}
             >
-              Cancel
+              取消
             </button>
             <button
               onClick={handleSave}
@@ -844,7 +844,7 @@ export default function SettingsModal({ open, onClose }: Props) {
                 fontWeight: 600,
               }}
             >
-              {loading ? "Saving..." : "Save"}
+              {loading ? "保存中..." : "保存"}
             </button>
           </div>
       </div>

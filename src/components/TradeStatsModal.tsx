@@ -176,32 +176,32 @@ export default function TradeStatsModal({ open, onClose, cities }: Props) {
     if (records.length === 0) return;
     const rows = records.map((r) => {
       return {
-        Market: formatQuestion(r.question),
-        City: cityDisplayName(r.city),
-        Threshold: r.threshold.replace(" or higher", "+").replace(" or below", "-"),
-        Side: r.side,
-        "Open Time (UTC)": formatDateTime(r.timestamp),
-        "Open Time (Local)": formatLocalTime(r.timestamp, tzMap.get(r.city) || null),
-        "Entry Price": r.entry_price,
-        Size: r.size,
-        Cost: r.cost,
-        "Close Time (UTC)": r.exit_timestamp ? formatDateTime(r.exit_timestamp) : "",
-        "Close Time (Local)": r.exit_timestamp ? formatLocalTime(r.exit_timestamp, tzMap.get(r.city) || null) : "",
-        "Exit Price": r.exit_price ?? "",
-        PnL: r.realized_pnl ?? "",
-        ROI: r.realized_pnl != null && r.cost > 0 ? ((r.realized_pnl / r.cost) * 100).toFixed(1) + "%" : "",
-        Status: r.status,
+        市场: formatQuestion(r.question),
+        城市: cityDisplayName(r.city),
+        温度档位: r.threshold.replace(" or higher", "+").replace(" or below", "-"),
+        方向: r.side,
+        "开仓时间(UTC)": formatDateTime(r.timestamp),
+        本地开仓时间: formatLocalTime(r.timestamp, tzMap.get(r.city) || null),
+        开仓价: r.entry_price,
+        数量: r.size,
+        成本: r.cost,
+        "平仓时间(UTC)": r.exit_timestamp ? formatDateTime(r.exit_timestamp) : "",
+        本地平仓时间: r.exit_timestamp ? formatLocalTime(r.exit_timestamp, tzMap.get(r.city) || null) : "",
+        平仓价: r.exit_price ?? "",
+        盈亏: r.realized_pnl ?? "",
+        收益率: r.realized_pnl != null && r.cost > 0 ? ((r.realized_pnl / r.cost) * 100).toFixed(1) + "%" : "",
+        状态: r.status,
       };
     });
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Trades");
+    XLSX.utils.book_append_sheet(wb, ws, "交易记录");
     const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
     const defaultName = `trades_${startDate}_${endDate}.xlsx`;
     try {
       await invoke("save_excel", { data: Array.from(new Uint8Array(buf)), defaultName });
     } catch (e) {
-      setError(`Export failed: ${e}`);
+      setError(`导出失败：${e}`);
     }
   }, [records, startDate, endDate, tzMap]);
 
@@ -259,7 +259,7 @@ export default function TradeStatsModal({ open, onClose, cities }: Props) {
           }}
         >
           <h2 style={{ margin: 0, fontSize: "16px", fontWeight: 700, color: "#e2e8f0", whiteSpace: "nowrap" }}>
-            Trade Statistics
+            交易统计
           </h2>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <div style={{ display: "flex", border: "1px solid #334155", borderRadius: "4px", overflow: "hidden" }}>
@@ -278,7 +278,7 @@ export default function TradeStatsModal({ open, onClose, cities }: Props) {
                     transition: "all 0.15s",
                   }}
                 >
-                  {f === "open" ? "Open Time" : "Close Time"}
+                  {f === "open" ? "开仓时间" : "平仓时间"}
                 </button>
               ))}
             </div>
@@ -328,7 +328,7 @@ export default function TradeStatsModal({ open, onClose, cities }: Props) {
                 transition: "all 0.15s",
               }}
             >
-              {loading ? "Loading..." : "Query"}
+              {loading ? "加载中" : "查询"}
             </button>
             <button
               onClick={handleSync}
@@ -346,7 +346,7 @@ export default function TradeStatsModal({ open, onClose, cities }: Props) {
                 whiteSpace: "nowrap",
               }}
             >
-              {syncing ? "Syncing..." : "Sync Positions"}
+              {syncing ? "同步中" : "同步持仓"}
             </button>
             <button
               onClick={handleExport}
@@ -364,7 +364,7 @@ export default function TradeStatsModal({ open, onClose, cities }: Props) {
                 whiteSpace: "nowrap",
               }}
             >
-              Export Excel
+              导出 Excel
             </button>
           </div>
           <div style={{ flex: 1 }} />
@@ -404,23 +404,23 @@ export default function TradeStatsModal({ open, onClose, cities }: Props) {
               fontSize: "12px",
             }}
           >
-            <span style={{ color: "#f59e0b", fontWeight: 700 }}>Sync Complete:</span>
+            <span style={{ color: "#f59e0b", fontWeight: 700 }}>同步完成：</span>
             <span style={{ color: "#94a3b8" }}>
-              Checked: <span style={{ color: "#e2e8f0", fontWeight: 600 }}>{syncResult.total_open}</span>
+              已检查：<span style={{ color: "#e2e8f0", fontWeight: 600 }}>{syncResult.total_open}</span>
             </span>
             {syncResult.synced > 0 && (
               <span style={{ color: "#22c55e" }}>
-                Synced: <span style={{ fontWeight: 600 }}>{syncResult.synced}</span>
+                已同步：<span style={{ fontWeight: 600 }}>{syncResult.synced}</span>
               </span>
             )}
             {syncResult.still_open > 0 && (
               <span style={{ color: "#94a3b8" }}>
-                Still Open: <span style={{ fontWeight: 600 }}>{syncResult.still_open}</span>
+                仍持仓：<span style={{ fontWeight: 600 }}>{syncResult.still_open}</span>
               </span>
             )}
             {syncResult.errors > 0 && (
               <span style={{ color: "#ef4444" }}>
-                Errors: <span style={{ fontWeight: 600 }}>{syncResult.errors}</span>
+                错误：<span style={{ fontWeight: 600 }}>{syncResult.errors}</span>
               </span>
             )}
             <div style={{ flex: 1 }} />
@@ -444,12 +444,12 @@ export default function TradeStatsModal({ open, onClose, cities }: Props) {
         <div style={{ flex: 1, overflow: "auto", minHeight: 0 }}>
           {error && (
             <div style={{ padding: "20px", textAlign: "center", color: "#ef4444", fontSize: "13px" }}>
-              Error: {error}
+              错误：{error}
             </div>
           )}
           {!error && records.length === 0 && !loading && (
             <div style={{ padding: "40px", textAlign: "center", color: "#64748b", fontSize: "13px" }}>
-              No trade records found in this period.
+              该时段内没有交易记录。
             </div>
           )}
           {records.length > 0 && (
@@ -475,7 +475,7 @@ export default function TradeStatsModal({ open, onClose, cities }: Props) {
               </colgroup>
               <thead>
                 <tr style={{ position: "sticky", top: 0, zIndex: 10 }}>
-                  {["Market", "City", "Temp", "Open Time (UTC)", "Open Local", "Entry Price", "Cost", "Close Time", "Exit Price", "PnL"].map((h, i) => (
+                  {["市场", "城市", "温度档位", "开仓时间(UTC)", "本地时间", "开仓价", "成本", "平仓时间", "平仓价", "盈亏"].map((h, i) => (
                     <th
                       key={i}
                       style={{
@@ -534,7 +534,7 @@ export default function TradeStatsModal({ open, onClose, cities }: Props) {
                         ${r.cost.toFixed(2)}
                       </td>
                       <td style={{ padding: "6px 4px", color: isOpen ? "#64748b" : "#cbd5e1", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
-                        {isOpen ? <span style={{ fontStyle: "italic", fontSize: "11px" }}>open</span> : formatDateTime(r.exit_timestamp)}
+                        {isOpen ? <span style={{ fontStyle: "italic", fontSize: "11px" }}>持仓中</span> : formatDateTime(r.exit_timestamp)}
                       </td>
                       <td style={{ padding: "6px 4px", color: r.exit_price != null ? "#cbd5e1" : "#64748b", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
                         {r.exit_price != null ? r.exit_price.toFixed(3) : "--"}
@@ -565,14 +565,14 @@ export default function TradeStatsModal({ open, onClose, cities }: Props) {
               }}
             >
               <span style={{ color: "#94a3b8" }}>
-                Total Trades: <b style={{ color: "#e2e8f0" }}>{stats.count}</b>
+                总交易数：<b style={{ color: "#e2e8f0" }}>{stats.count}</b>
               </span>
               <span style={{ color: "#64748b" }}>|</span>
               <span style={{ color: "#94a3b8" }}>
-                Total Cost: <b style={{ color: "#e2e8f0" }}>${stats.totalCost.toFixed(2)}</b>
+                总成本：<b style={{ color: "#e2e8f0" }}>${stats.totalCost.toFixed(2)}</b>
               </span>
               <span style={{ color: "#64748b" }}>|</span>
-              <span style={{ color: "#94a3b8" }}>Total PnL: </span>
+              <span style={{ color: "#94a3b8" }}>总盈亏：</span>
               <b style={{ color: stats.totalPnl >= 0 ? "#22c55e" : "#ef4444", fontVariantNumeric: "tabular-nums" }}>
                 {stats.totalPnl >= 0 ? "+" : ""}${stats.totalPnl.toFixed(2)}
               </b>

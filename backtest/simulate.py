@@ -81,14 +81,16 @@ def load_json(*parts):
 # ── 闸门 ──
 
 def gate_new(lower, step, local_hour, st_high, st_cur, met_peak, mk_lower, pre_steps, post_only, yhh=None,
-             post_hour=15, post_steps=1, post_met_margin=0.0):
+             post_hour=15, post_steps=1, post_met_margin=0.0, use_yhh=False):
     """移植自 App.tsx checkOpenSafetyGate；返回 (pass, phase)。"""
     if lower is None or st_high is None:
         return False, "na"
     obs = max(v for v in (st_high, st_cur) if v is not None)
     ref = max([obs] + [v for v in (met_peak, (mk_lower + step) if mk_lower is not None else None) if v is not None])
     peak_hour = yhh if yhh is not None else 16
-    post = (local_hour >= post_hour and st_cur is not None and st_cur <= st_high) or local_hour > peak_hour + 1
+    afternoon_flat = local_hour >= post_hour and st_cur is not None and st_cur <= st_high
+    well_past = use_yhh and local_hour > peak_hour + 1
+    post = afternoon_flat or well_past
     if post:
         if isinstance(post_steps, dict):
             post_steps = post_steps.get(local_hour, post_steps.get("default", 1))
@@ -175,7 +177,20 @@ def main():
         "h16_p1_m1_pre4": (4, False, 16, 1, 1),
         "postonly_h16_p1_m1": (3, True, 16, 1, 1),
         "hybrid_h16p2_h17p1_m0.5": (3, False, 16, {16: 2, "default": 1}, 0.5),
+        "LIVE_h16_m0.5_YHH": (3, False, 16, 1, 0.5, True),   # 线上实际行为：wellPastPeak 用昨日峰值小时
+        "FIX_h16_m0.5_noYHH": (3, False, 16, 1, 0.5, False), # 修复：去掉 wellPastPeak 旁路
+        # 滑动闸门：越早开仓要求越大的安全边际，用档数换时间窗
+        "SLIDE_h14": (3, False, 14, {14: 3, 15: 2, "default": 1}, 0.5),
+        "SLIDE_h13": (3, False, 13, {13: 4, 14: 3, 15: 2, "default": 1}, 0.5),
+        "SLIDE_h12": (3, False, 12, {12: 5, 13: 4, 14: 3, 15: 2, "default": 1}, 0.5),
+        "SLIDE_h11": (3, False, 11, {11: 6, 12: 5, 13: 4, 14: 3, 15: 2, "default": 1}, 0.5),
         "llm_AND_h16_p1_m0.5": None,   # 实际线上 = LLM 推荐 ∩ 闸门
+        "llm_AND_LIVE_YHH": None,
+        "llm_AND_FIX_noYHH": None,
+        "llm_AND_SLIDE_h14": None,
+        "llm_AND_SLIDE_h13": None,
+        "llm_AND_SLIDE_h12": None,
+        "llm_AND_SLIDE_h11": None,
     }
     trades = {k: [] for k in variants}
     candidates = []  # 所有进入价格区间的候选，含特征，用于分析
@@ -204,6 +219,9 @@ def main():
                     series[m["no_token"]] = PriceSeries(h)
                 m["lower"] = lower_of(m["label"])
             day_obs = [(t, v) for t, v in obs if t.date() == d]
+            yd = d - dt.timedelta(days=1)
+            yobs = [(t, v) for t, v in obs if t.date() == yd]
+            yday_high_hour = max(yobs, key=lambda x: x[1])[0].hour if yobs else None
             fc_day = {int(t[11:13]): v for t, v in fc.items() if t[:10] == d.isoformat()}
             winner = next(m for m in mk if m["yes_won"])
             final_high_obs = max((v for _, v in day_obs), default=None)
@@ -273,10 +291,17 @@ def main():
                     decisions = {
                         "old_llm": gate_old_llm(m["lower"], step, h, st_high, st_cur, mk_lower),
                     }
-                    for k, (n, post_only, ph, ps, pm) in ((k, v) for k, v in variants.items() if v):
+                    for k, v in ((k, v) for k, v in variants.items() if v):
+                        n, post_only, ph, ps, pm = v[:5]
+                        uy = v[5] if len(v) > 5 else False
                         decisions[k] = gate_new(m["lower"], step, h, st_high, st_cur, met_peak, mk_lower, n, post_only,
-                                                post_hour=ph, post_steps=ps, post_met_margin=pm)[0]
+                                                yhh=yday_high_hour, post_hour=ph, post_steps=ps, post_met_margin=pm,
+                                                use_yhh=uy)[0]
                     decisions["llm_AND_h16_p1_m0.5"] = decisions["old_llm"] and decisions["h16_p1_m0.5"]
+                    decisions["llm_AND_LIVE_YHH"] = decisions["old_llm"] and decisions["LIVE_h16_m0.5_YHH"]
+                    decisions["llm_AND_FIX_noYHH"] = decisions["old_llm"] and decisions["FIX_h16_m0.5_noYHH"]
+                    for _h in ("h14", "h13", "h12", "h11"):
+                        decisions[f"llm_AND_SLIDE_{_h}"] = decisions["old_llm"] and decisions[f"SLIDE_{_h}"]
                     for k, ok in decisions.items():
                         if not ok or m["no_token"] in held[k]:
                             continue

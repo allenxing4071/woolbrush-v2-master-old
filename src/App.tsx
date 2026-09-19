@@ -89,8 +89,21 @@ function localHour(gmt: Date, offsetHours: number): { hour: string; dayOffset: n
 //   本闸门（15:00 版）          1638 笔 / 23 亏 / +0.74%/笔
 //   本闸门（16:00 + MET 半档）  1102 笔 / 10 亏 / +1.05%/笔；ask 上限收到 0.99 后 855 笔 / 7 亏 / +1.68%/笔
 //   ∩ LLM 推荐（实际线上）      ask≤0.99：474 笔 / 2 亏 / +1.85%/笔；ask≤0.98：240 笔 / 1 亏 / +2.80%/笔
-//   资金层（$4500、10% 仓位、亏损率压力到 1.4%，200 次）：ask≤0.98 月收益中位 +42%、10 分位 +15%、回撤 12%；
-//   ask≤0.99 对应 +26% / +1% / 14%。0.98–0.99 区间的单子收益薄、风险同样是 100%，故默认 askMax=0.98。
+//
+// v2.2.0 重测（2026-09-19，同一份 51 城 20 天真实盘口，资金层 $2000 / 10% 仓位 / 亏损率压力 +1.4% × 200 次）：
+//   按买入价分带隔离闸门放行的机会（笔数 / 单笔收益 / 实盘 NO 侧深度）：
+//     0.92–0.95   234 / +4.15% / $51.8k      ← 毛利最厚，此前被 askMin=0.95 全部挡掉
+//     0.95–0.98   523 / +2.19% / $111.4k
+//     0.98–0.99   561 / +1.17% / $48.3k      ← 此前被 askMax=0.98 全部挡掉
+//     0.99–0.995  539 / +0.27% / $60.9k      ← 收益薄到被费用吃光，不要
+//     0.995–1.00 5949 / −0.31% / $173.0k     ← 明确亏损带
+//   资金层对照（32 天收益 / 压力中位 / 压力 10 分位 / 压力回撤）：
+//     0.95–0.98 + LLM 硬否决   243 机会 →  +76% / +29.1% /  +3.6% / 14.0%（v2.1.1 线上）
+//     0.92–0.99 + LLM 硬否决   516 机会 →  +88% / +23.6% /  −6.6% / 18.0%  只放宽价格反而恶化尾部
+//     0.92–0.99 + 闸门自主    1016 机会 → +151% / +56.2% / +17.7% / 17.1%  ← 采用
+//     0.92–0.995 + 闸门自主   1260 机会 →  +83% / +17.1% / −13.1% / 22.3%  上限不能到 0.995
+//   结论：askMin=0.92、askMax=0.99，且 LLM 降为建议（不再作为硬否决），候选池由闸门遍历全部档位生成。
+//   只改价格区间而保留 LLM 硬否决是负向的——LLM 专门挡掉 0.92–0.95 这批单笔 +4.15% 的肥单。
 //   止损：0.95/0.90 会把大量最终盈利的仓位在 -1%~-10% 处打掉，净收益反而大幅下降；
 //        0.50 的"灾难止损"略优于不止损，故默认 SL=0.50。
 
@@ -170,11 +183,15 @@ function checkOpenSafetyGate(inp: SafetyGateInput): SafetyGateResult {
   // 回测（51 城 × 38 天，见 backtest/）：15:00 判定"峰值已过"过早——ST 观测滞后约 1 小时，
   // 大量城市在 15:00 后仍再升 1-3°C，15:00 开仓的亏损占全部亏损的一半以上；推迟到 16:00 后
   // 亏损次数从 23 降到 10，单笔收益率从 0.74% 升到 1.05%。
-  const peakHour = inp.yesterdayHighHour ?? 16;
-  const afternoonFlat = inp.localHour >= POST_PEAK_MIN_HOUR
+  // v2.1.1：删除原先的 wellPastPeak 旁路（localHour > yesterdayHighHour + 1）。
+  // 该旁路会绕过 POST_PEAK_MIN_HOUR：昨日峰值出现在 12:00 的城市，当地 14:00 就被判为
+  // 峰值已过。9/17 样本外数据里它造成 cape-town 20°C（当地 14:00，ST 19、MET 18.3，
+  // 实际 20.0）整笔归零，当天单笔收益从 +3.00% 变成 −1.00%。
+  // 回测对照（8/29-9/17 走步样本外）：带旁路 251 笔 3 亏 +2.05%/笔；去掉后 147 笔 0 亏 +3.07%/笔。
+  // 昨日峰值小时仅作为诊断信息记录，不再参与判定。
+  detail.yesterday_high_hour = inp.yesterdayHighHour;
+  const postPeak = inp.localHour >= POST_PEAK_MIN_HOUR
     && inp.stCurrent !== null && inp.stHigh !== null && inp.stCurrent <= inp.stHigh;
-  const wellPastPeak = inp.localHour > peakHour + 1;
-  const postPeak = afternoonFlat || wellPastPeak;
   detail.phase = postPeak ? "post_peak" : "pre_peak";
 
   if (postPeak) {
@@ -394,7 +411,7 @@ function AccountInline({ account }: { account: AccountSummary }) {
       delay: 0,
       node: (
         <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-          <span style={{ color: "#64748b", fontSize: "12px" }}>Cash</span>
+          <span style={{ color: "#64748b", fontSize: "12px" }}>现金</span>
           <AnimatedValue value={`$${(pusd_balance ?? 0).toFixed(2)}`} color="#34d399" />
         </div>
       ),
@@ -409,7 +426,7 @@ function AccountInline({ account }: { account: AccountSummary }) {
         <>
           <span style={{ color: "#334155", fontSize: "14px" }}>|</span>
           <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-            <span style={{ color: "#64748b", fontSize: "12px" }}>Portfolio</span>
+            <span style={{ color: "#64748b", fontSize: "12px" }}>持仓市值</span>
             <AnimatedValue value={`$${portfolio_value.toFixed(2)}`} color="#38bdf8" />
           </div>
         </>
@@ -564,8 +581,8 @@ export default function App() {
     }, GC_INTERVAL);
     return () => clearInterval(timer);
   }, []);
-  const [askMin, setAskMin] = useState("0.950");
-  const [askMax, setAskMax] = useState("0.980");
+  const [askMin, setAskMin] = useState("0.920");
+  const [askMax, setAskMax] = useState("0.990");
   const [gmtNow, setGmtNow] = useState(() => new Date());
   const gmtNowRef = useRef(gmtNow);
   gmtNowRef.current = gmtNow;
@@ -808,7 +825,7 @@ export default function App() {
       }
     }
     if (amount <= 0) {
-      showToast("error", "Order amount must be positive");
+      showToast("error", "下单金额必须大于 0");
       return;
     }
     const opp = {
@@ -829,11 +846,11 @@ export default function App() {
       fillPositionFromRecord(record);
       const key = `${city}-highest-${threshold.label}`;
       setPinnedKeys((prev) => new Set(prev).add(key));
-      showToast("success", `Opened: ${cityDisplayName(city)} ${threshold.label} @ ${askPrice.toFixed(3)}`);
+      showToast("success", `已开仓: ${cityDisplayName(city)} ${threshold.label} @ ${askPrice.toFixed(3)}`);
       refreshAccount();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      showToast("error", `Open failed: ${cityDisplayName(city)} ${threshold.label} - ${msg}`);
+      showToast("error", `开仓失败: ${cityDisplayName(city)} ${threshold.label} - ${msg}`);
     }
   }, [fillPositionFromRecord, showToast, refreshAccount]);
 
@@ -858,11 +875,11 @@ export default function App() {
           break;
         }
       }
-      showToast("success", `Closed position: ${tokenId.slice(0, 8)}...`);
+      showToast("success", `已平仓: ${tokenId.slice(0, 8)}...`);
       refreshAccount();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      showToast("error", `Close failed: ${msg}`);
+      showToast("error", `平仓失败: ${msg}`);
     }
   }, [removePosition, showToast, refreshAccount]);
 
@@ -876,7 +893,7 @@ export default function App() {
       showToast("success", `持仓监控已启动 (止损≤${stopLossPrice} 止盈≥${takeProfitPrice})`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      showToast("error", `监控器启动失败: ${msg}`);
+      showToast("error", `持仓监控启动失败: ${msg}`);
     }
   }, [showToast]);
 
@@ -935,9 +952,9 @@ const handleUpdateCities = useCallback(async () => {
         });
       }
       if (parts.length > 0) {
-        showToast("success", `Cities updated: ${result.total_before} -> ${result.total_after} (${parts.join("; ")})`);
+        showToast("success", `城市列表已更新: ${result.total_before} -> ${result.total_after} (${parts.join("; ")})`);
       } else {
-        showToast("success", `Cities up to date: ${result.total_before} cities, ${result.discovered.length} discovered`);
+        showToast("success", `城市列表已是最新: ${result.total_before} 个城市, 发现 ${result.discovered.length} 个`);
       }
       // 刷新全量城市列表 + 可见列表（保持用户的城市筛选）
       const refreshed = await invoke<CityRow[]>("get_cities");
@@ -945,7 +962,7 @@ const handleUpdateCities = useCallback(async () => {
       setSqliteCities(getVisibleCities(refreshed, selectedCitySlugsRef.current));
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      showToast("error", `Update cities failed: ${msg}`);
+      showToast("error", `更新城市列表失败: ${msg}`);
     }
   }, [showToast, getVisibleCities]);
 
@@ -1571,7 +1588,7 @@ const handleUpdateCities = useCallback(async () => {
           }
           const pnlStr = realized_pnl >= 0 ? `+${realized_pnl.toFixed(2)}` : realized_pnl.toFixed(2);
           const reasonLabel = reason === "stop_loss" ? "止损" : reason === "take_profit" ? "止盈" : reason;
-          showToast("success", `${city} ${reasonLabel}平仓 @${exit_price.toFixed(3)} PnL ${pnlStr}`);
+          showToast("success", `${city} ${reasonLabel}平仓 @${exit_price.toFixed(3)} 盈亏 ${pnlStr}`);
           refreshAccount();
         });
         if (cancelled) { fn(); return; }
@@ -1784,8 +1801,25 @@ const handleUpdateCities = useCallback(async () => {
           ? (() => { const { hour } = localHour(gmtNowRef.current, localOffset); return `${hour}:00`; })()
           : "unknown";
 
+        // 盘口深度采集：回测长期只有成交价、没有档位可吃金额，导致"机会数"始终是
+        // 高估的上限。这里把决策时点的真实盘口一并落盘，攒够样本后重跑带深度约束的回测。
+        // 失败不影响主流程，深度字段留空即可。
+        const depthByToken = new Map<string, { asks: { price: number; size: number }[]; bids: { price: number; size: number }[] }>();
+        try {
+          const tokenIds = (md0?.highest?.thresholds ?? []).map((t) => t.no_token_id).filter(Boolean);
+          if (tokenIds.length > 0) {
+            const snaps = await invoke<{ token_id: string; asks: { price: number; size: number }[]; bids: { price: number; size: number }[] }[]>(
+              "fetch_depth_snapshot", { tokenIds, depth: 10 },
+            );
+            for (const d of snaps) depthByToken.set(d.token_id, { asks: d.asks, bids: d.bids });
+          }
+        } catch (e) {
+          console.warn("Failed to fetch depth snapshot:", e);
+        }
+
         const thresholds = md0?.highest?.thresholds.map((t) => {
           const price = pm.get(t.no_token_id);
+          const depth = depthByToken.get(t.no_token_id);
           return {
             label: t.label,
             yes_price: t.yes_price,
@@ -1793,6 +1827,9 @@ const handleUpdateCities = useCallback(async () => {
             bid: price?.bid ?? null,
             ask: price?.ask ?? null,
             mid: price?.mid ?? null,
+            // NO 侧卖盘：买入时能吃到的价量；bids 用于评估平仓时的退出深度
+            depth_asks: depth?.asks ?? null,
+            depth_bids: depth?.bids ?? null,
           };
         }) ?? [];
 
@@ -1923,7 +1960,7 @@ const handleUpdateCities = useCallback(async () => {
 
         try {
           await invoke<string>("close_position", { tokenId: pos.token_id });
-          showToast("success", `Auto close ${reason}: ${pos.question}`);
+          showToast("success", `自动平仓 ${reason}: ${pos.question}`);
           await rlog(slug, "close_attempt", {
             token_id: pos.token_id,
             side: pos.side,
@@ -1958,7 +1995,7 @@ const handleUpdateCities = useCallback(async () => {
           } else {
             // 其它错误（网络/盘口）允许下一轮重试
             autoCloseAttemptedRef.current.delete(key);
-            showToast("error", `Auto close failed: ${pos.question} - ${msg}`);
+            showToast("error", `自动平仓失败: ${pos.question} - ${msg}`);
           }
           await rlog(slug, "close_attempt", {
             token_id: pos.token_id,
@@ -2084,7 +2121,7 @@ const handleUpdateCities = useCallback(async () => {
           if (rawIdx !== -1) msg = msg.slice(0, rawIdx);
           setAnalyzingResult(`分析失败: ${msg}`);
           // Toast 只显示城市名，不展示 LLM 原始错误详情
-          showToast("error", `Analyze failed: ${cityDisplayName(slug)}`);
+          showToast("error", `分析失败: ${cityDisplayName(slug)}`);
           await rlog(slug, "error", { stage: "llm_analyze", error: msg, raw_error: e instanceof Error ? e.message : String(e) });
           return 3000;
         }
@@ -2094,7 +2131,29 @@ const handleUpdateCities = useCallback(async () => {
           summary: analysis.summary,
         });
 
-        if (!analysis.actions || analysis.actions.length === 0) {
+        // v2.2.0：LLM 降为建议。候选池不再由 LLM 决定，而是由安全闸门遍历全部 NO 档位自行生成；
+        // LLM 的推荐与理由仍然记入 review 日志，用于事后对账，但不再拥有否决权。
+        const llmActions = analysis.actions ?? [];
+        const llmPicked = new Set(llmActions.map((a) => a.threshold_label));
+        const llmReasonOf = new Map(llmActions.map((a) => [a.threshold_label, a.reason]));
+        type OpenCandidate = { threshold_label: string; side: string; reason: string; origin: "llm" | "gate" };
+        const candidates: OpenCandidate[] = llmActions.map((a) => ({ ...a, origin: "llm" as const }));
+        // 闸门自主候选按卖一价升序排列：资金受限时优先吃毛利最厚的单子（0.92–0.95 带单笔 +4.15%）
+        const gateCandidates = md.highest.thresholds
+          .filter((t) => !llmPicked.has(t.label))
+          .map((t) => ({ t, ask: priceMap.get(t.no_token_id)?.ask ?? t.no_price }))
+          .filter((x) => x.ask != null)
+          .sort((a, b) => (a.ask as number) - (b.ask as number))
+          .map((x) => ({ threshold_label: x.t.label, side: "NO", reason: "gate_enumerated", origin: "gate" as const }));
+        candidates.push(...gateCandidates);
+
+        await rlog(slug, "open_candidates", {
+          llm_count: llmActions.length,
+          gate_count: gateCandidates.length,
+          llm_labels: llmActions.map((a) => a.threshold_label),
+        });
+
+        if (candidates.length === 0) {
           setAnalyzingResult(`不开仓: ${analysis.summary}`);
           return 3000;
         }
@@ -2118,10 +2177,10 @@ const handleUpdateCities = useCallback(async () => {
           }
         }
 
-        // 逐个处理 LLM 推荐的开仓档位
+        // 逐个处理候选档位（LLM 建议 + 闸门自主枚举）
         let openedCount = 0;
         let firstLabel = "";
-        for (const action of analysis.actions) {
+        for (const action of candidates) {
           const targetThreshold = md.highest.thresholds.find(
             (t) => t.label === action.threshold_label
           );
@@ -2202,11 +2261,18 @@ const handleUpdateCities = useCallback(async () => {
                 ask_price: askPrice,
                 reason: gate.reason,
                 gate: gate.detail,
-                llm_reason: action.reason,
+                origin: action.origin,
+                llm_reason: llmReasonOf.get(action.threshold_label) ?? null,
               });
               continue;
             }
-            await rlog(slug, "safety_gate_pass", { label: action.threshold_label, reason: gate.reason, gate: gate.detail });
+            await rlog(slug, "safety_gate_pass", {
+              label: action.threshold_label,
+              reason: gate.reason,
+              gate: gate.detail,
+              origin: action.origin,
+              llm_reason: llmReasonOf.get(action.threshold_label) ?? null,
+            });
           }
 
           if (!firstLabel) firstLabel = action.threshold_label;
@@ -2222,7 +2288,8 @@ const handleUpdateCities = useCallback(async () => {
             current_price: askPrice,
             expected_profit: 0,
             confirmed_threshold: null,
-            strategy_label: "LLM" as const,
+            // 区分成交来源，便于事后统计 LLM 建议单 vs 闸门自主单的表现差异
+            strategy_label: action.origin === "llm" ? "LLM" : "Gate",
           };
 
           try {
@@ -2234,7 +2301,7 @@ const handleUpdateCities = useCallback(async () => {
             });
             fillPositionFromRecord(record);
             setPinnedKeys((prev) => new Set(prev).add(key));
-            showToast("success", `LLM: ${cityDisplayName(slug)} ${targetThreshold.label} @ ${askPrice.toFixed(3)}`);
+            showToast("success", `LLM 判断: ${cityDisplayName(slug)} ${targetThreshold.label} @ ${askPrice.toFixed(3)}`);
             refreshAccount();
             openedCount++;
             await rlog(slug, "open_execute", {
@@ -2252,7 +2319,7 @@ const handleUpdateCities = useCallback(async () => {
           } catch (e) {
             autoTradeAttemptedRef.current.delete(key);
             const msg = e instanceof Error ? e.message : String(e);
-            showToast("error", `LLM open failed: ${cityDisplayName(slug)} ${targetThreshold.label} - ${msg}`);
+            showToast("error", `LLM 开仓失败: ${cityDisplayName(slug)} ${targetThreshold.label} - ${msg}`);
             await rlog(slug, "open_execute", {
               result: "error",
               label: action.threshold_label,
@@ -2305,8 +2372,25 @@ const handleUpdateCities = useCallback(async () => {
           ? (() => { const { hour } = localHour(gmtNowRef.current, localOffset); return `${hour}:00`; })()
           : "unknown";
 
+        // 盘口深度采集：回测长期只有成交价、没有档位可吃金额，导致"机会数"始终是
+        // 高估的上限。这里把决策时点的真实盘口一并落盘，攒够样本后重跑带深度约束的回测。
+        // 失败不影响主流程，深度字段留空即可。
+        const depthByToken = new Map<string, { asks: { price: number; size: number }[]; bids: { price: number; size: number }[] }>();
+        try {
+          const tokenIds = (md0?.highest?.thresholds ?? []).map((t) => t.no_token_id).filter(Boolean);
+          if (tokenIds.length > 0) {
+            const snaps = await invoke<{ token_id: string; asks: { price: number; size: number }[]; bids: { price: number; size: number }[] }[]>(
+              "fetch_depth_snapshot", { tokenIds, depth: 10 },
+            );
+            for (const d of snaps) depthByToken.set(d.token_id, { asks: d.asks, bids: d.bids });
+          }
+        } catch (e) {
+          console.warn("Failed to fetch depth snapshot:", e);
+        }
+
         const thresholds = md0?.highest?.thresholds.map((t) => {
           const price = pm.get(t.no_token_id);
+          const depth = depthByToken.get(t.no_token_id);
           return {
             label: t.label,
             yes_price: t.yes_price,
@@ -2314,6 +2398,9 @@ const handleUpdateCities = useCallback(async () => {
             bid: price?.bid ?? null,
             ask: price?.ask ?? null,
             mid: price?.mid ?? null,
+            // NO 侧卖盘：买入时能吃到的价量；bids 用于评估平仓时的退出深度
+            depth_asks: depth?.asks ?? null,
+            depth_bids: depth?.bids ?? null,
           };
         }) ?? [];
 
@@ -2506,7 +2593,7 @@ const handleUpdateCities = useCallback(async () => {
           <div style={{ width: "8px" }} />
           {account && <AccountInline account={account} />}
           <button onClick={() => setShowSettings(true)} style={{ padding: "4px 12px", fontSize: "12px", background: "#1e293b", color: "#94a3b8", border: "1px solid #334155", borderRadius: "4px", cursor: "pointer", transition: "all 0.15s" }} onMouseEnter={(e) => { e.currentTarget.style.color = "#38bdf8"; e.currentTarget.style.borderColor = "#38bdf8"; }} onMouseLeave={(e) => { e.currentTarget.style.color = "#94a3b8"; e.currentTarget.style.borderColor = "#334155"; }}>
-            Settings
+            设置
           </button>
         </div>
 
@@ -2583,12 +2670,12 @@ const handleUpdateCities = useCallback(async () => {
             {isRunning ? (
               <>
                 <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#fff", animation: "pulse 1s ease-in-out infinite" }} />
-                Stop
+                停止
               </>
             ) : (
               <>
                 <span style={{ width: "0", height: "0", borderTop: "5px solid transparent", borderBottom: "5px solid transparent", borderLeft: "8px solid #fff" }} />
-                Start
+                开始
               </>
             )}
           </span>
@@ -2598,10 +2685,10 @@ const handleUpdateCities = useCallback(async () => {
       {/* 城市卡片列表 */}
       <div ref={scrollContainerRef} style={{ flex: 1, overflow: "auto", overscrollBehavior: "none", paddingTop: "2px" }}>
         {sqliteCities.length === 0 && state === "loading" && (
-          <div style={{ padding: "40px", textAlign: "center", color: "#64748b", fontSize: "14px" }}>Loading cities...</div>
+          <div style={{ padding: "40px", textAlign: "center", color: "#64748b", fontSize: "14px" }}>加载城市中...</div>
         )}
         {sqliteCities.length === 0 && state === "success" && (
-          <div style={{ padding: "40px", textAlign: "center", color: "#64748b", fontSize: "14px" }}>No cities in database.</div>
+          <div style={{ padding: "40px", textAlign: "center", color: "#64748b", fontSize: "14px" }}>数据库中暂无城市</div>
         )}
         {(() => {
           // 预建 city -> marketData 映射，避免 O(n²) 查找
@@ -2643,7 +2730,7 @@ const handleUpdateCities = useCallback(async () => {
 
       {/* 状态栏 */}
       <div style={{ flexShrink: 0, padding: "6px 16px", background: "#0f172a", borderTop: "1px solid #334155", fontSize: "12px", color: "#64748b", display: "flex", alignItems: "center", gap: "8px" }}>
-        <button onClick={() => loadData(selectedCitySlugs ? Array.from(selectedCitySlugs) : null)} disabled={state === "loading"} title="Refresh" style={{ padding: "4px 6px", background: "transparent", border: "1px solid #334155", borderRadius: "4px", cursor: state === "loading" ? "not-allowed" : "pointer", color: "#94a3b8", display: "flex", alignItems: "center", justifyContent: "center", opacity: state === "loading" ? 0.5 : 1, transition: "all 0.15s" }} onMouseEnter={(e) => { if (state !== "loading") { e.currentTarget.style.color = "#38bdf8"; e.currentTarget.style.borderColor = "#38bdf8"; } }} onMouseLeave={(e) => { e.currentTarget.style.color = "#94a3b8"; e.currentTarget.style.borderColor = "#334155"; }}>
+        <button onClick={() => loadData(selectedCitySlugs ? Array.from(selectedCitySlugs) : null)} disabled={state === "loading"} title="刷新：重新加载选中城市的市场数据" style={{ padding: "4px 6px", background: "transparent", border: "1px solid #334155", borderRadius: "4px", cursor: state === "loading" ? "not-allowed" : "pointer", color: "#94a3b8", display: "flex", alignItems: "center", justifyContent: "center", opacity: state === "loading" ? 0.5 : 1, transition: "all 0.15s" }} onMouseEnter={(e) => { if (state !== "loading") { e.currentTarget.style.color = "#38bdf8"; e.currentTarget.style.borderColor = "#38bdf8"; } }} onMouseLeave={(e) => { e.currentTarget.style.color = "#94a3b8"; e.currentTarget.style.borderColor = "#334155"; }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="23 4 23 10 17 10"></polyline>
             <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
@@ -2651,7 +2738,7 @@ const handleUpdateCities = useCallback(async () => {
         </button>
         <button
           onClick={() => setShowTradeStats(true)}
-          title="Trade Statistics"
+          title="交易统计：查看交易记录、同步持仓、导出 Excel"
           style={{
             padding: "4px 10px",
             background: "transparent",
@@ -2674,11 +2761,11 @@ const handleUpdateCities = useCallback(async () => {
             <line x1="12" y1="20" x2="12" y2="4" />
             <line x1="6" y1="20" x2="6" y2="14" />
           </svg>
-          Stats
+          统计
         </button>
         <button
           onClick={() => setShowCitySelector(true)}
-          title="Edit cities / filter"
+          title="编辑城市：选择要加载与交易的城市"
           style={{
             padding: "4px 8px",
             background: "transparent",
@@ -2701,22 +2788,22 @@ const handleUpdateCities = useCallback(async () => {
             <circle cx="12" cy="10" r="3" />
           </svg>
           {selectedCitySlugs ? `${selectedCitySlugs.size}/${allCities.length || "--"}` : allCities.length > 0 ? `${allCities.length}/${allCities.length}` : "--"}
-          {" "}Cities
+          {" "}城市
         </button>
         <span style={{ fontVariantNumeric: "tabular-nums" }}>
           {gmtNow.toISOString().replace("T", " ").slice(0, 16)} GMT
         </span>
         <span>
           {state === "loading"
-            ? `Loading ${progress.total > 0 ? `(${progress.processed}/${progress.total})` : "..."}${weatherProgress.total > 0 ? ` | Weather (${weatherProgress.processed}/${weatherProgress.total})` : ""}`
+            ? `加载中 ${progress.total > 0 ? `(${progress.processed}/${progress.total})` : "..."}${weatherProgress.total > 0 ? ` | 天气 (${weatherProgress.processed}/${weatherProgress.total})` : ""}`
             : state === "success"
-            ? `${sqliteCities.length} cities${weatherProgress.total > 0 && weatherProgress.processed < weatherProgress.total ? ` | Weather (${weatherProgress.processed}/${weatherProgress.total})` : ""}`
-            : "Failed to load"}
+            ? `${sqliteCities.length} cities${weatherProgress.total > 0 && weatherProgress.processed < weatherProgress.total ? ` | 天气 (${weatherProgress.processed}/${weatherProgress.total})` : ""}`
+            : "加载失败"}
         </span>
         <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "12px", fontVariantNumeric: "tabular-nums", paddingRight: "20px" }}>
-          <span style={{ color: "#94a3b8" }}>Positions: <span style={{ color: "#e2e8f0", fontWeight: 600 }}>{positionStats.count}</span></span>
-          <span style={{ color: "#94a3b8" }}>P&amp;L: <span style={{ color: positionStats.totalPnl >= 0 ? "#10b981" : "#ef4444", fontWeight: 600 }}>{positionStats.totalPnl >= 0 ? "+" : ""}${positionStats.totalPnl.toFixed(2)}</span></span>
-          <span style={{ color: "#94a3b8" }}>ROI: <span style={{ color: positionStats.pnlPct >= 0 ? "#10b981" : "#ef4444", fontWeight: 600 }}>{positionStats.pnlPct >= 0 ? "+" : ""}{positionStats.pnlPct.toFixed(1)}%</span></span>
+          <span style={{ color: "#94a3b8" }}>持仓: <span style={{ color: "#e2e8f0", fontWeight: 600 }}>{positionStats.count}</span></span>
+          <span style={{ color: "#94a3b8" }}>盈亏: <span style={{ color: positionStats.totalPnl >= 0 ? "#10b981" : "#ef4444", fontWeight: 600 }}>{positionStats.totalPnl >= 0 ? "+" : ""}${positionStats.totalPnl.toFixed(2)}</span></span>
+          <span style={{ color: "#94a3b8" }}>收益率: <span style={{ color: positionStats.pnlPct >= 0 ? "#10b981" : "#ef4444", fontWeight: 600 }}>{positionStats.pnlPct >= 0 ? "+" : ""}{positionStats.pnlPct.toFixed(1)}%</span></span>
         </span>
       </div>
 

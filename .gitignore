@@ -61,3 +61,14 @@ data/*.xlsx
 # TS incremental build info
 tsconfig.tsbuildinfo
 src-tauri/data/review/
+
+# 运行时数据库（补漏：原规则只覆盖 data/ 与 src-tauri/data/ 下的 db）
+src-tauri/woolbrush.db
+**/woolbrush.db
+
+# 盘口深度采集数据（每天约 130MB，只在本地留存）
+data/depth/
+
+# Python 缓存
+__pycache__/
+*.pyc

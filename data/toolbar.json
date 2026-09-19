@@ -1,6 +1,6 @@
 {
-  "askMax": "0.980",
-  "askMin": "0.950",
+  "askMax": "0.990",
+  "askMin": "0.920",
   "orderAmount": "5",
   "orderMode": "percent",
   "orderPercent": "10",

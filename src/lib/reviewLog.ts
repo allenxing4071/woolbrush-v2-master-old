@@ -9,6 +9,7 @@ export type ReviewEventType =
   | "skip"
   | "open_preflight"
   | "open_llm_result"
+  | "open_candidates"
   | "safety_gate_pass"
   | "open_execute"
   | "round_end"

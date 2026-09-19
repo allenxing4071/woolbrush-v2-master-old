@@ -528,7 +528,7 @@ const CityCard = memo(function CityCard({
         {/* 温度档位方块 */}
         <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" as const, flex: "0 0 auto" }}>
           {thresholds.length === 0 && (
-            <span style={{ fontSize: "10px", color: "#374151" }}>No active markets</span>
+            <span style={{ fontSize: "10px", color: "#374151" }}>暂无活跃市场</span>
           )}
           {thresholds.map(({ threshold: t }, idx) => {
             const price = priceMap.get(t.no_token_id);
@@ -747,7 +747,7 @@ const CityCard = memo(function CityCard({
                   </span>
                   <span style={{ width: "1px", height: "12px", background: "#334155" }} />
                   {isPending ? (
-                    <span style={{ color: "#f59e0b", fontWeight: 600 }}>Syncing...</span>
+                    <span style={{ color: "#f59e0b", fontWeight: 600 }}>同步中</span>
                   ) : (
                     <>
                       {/* 开仓价格 */}
@@ -770,7 +770,7 @@ const CityCard = memo(function CityCard({
                   {/* 平仓按钮（圆圈叉，双击平仓） */}
                   <button
                     onDoubleClick={() => onClosePosition(pos.token_id)}
-                    title="Double-click to close"
+                    title="双击可按当前买一价手动平仓该持仓"
                     style={{
                       width: "14px",
                       height: "14px",

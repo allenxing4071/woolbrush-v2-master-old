@@ -18,7 +18,39 @@ const BAILIAN_DEFAULT_MODEL: &str = "qwen-plus";
 
 // Ollama Cloud API: Bearer 认证，OpenAI 兼容格式
 const OLLAMA_DEFAULT_URL: &str = "https://ollama.com/v1/chat/completions";
+// 本机自建 Ollama：无需 API Key，OpenAI 兼容端点与云端同格式
+const OLLAMA_LOCAL_URL: &str = "http://localhost:11434/v1/chat/completions";
 const OLLAMA_DEFAULT_MODEL: &str = "qwen2.5:14b";
+
+/// 判断是否为本机/内网地址。本机 Ollama 不能走代理，也不需要 Bearer 认证。
+fn is_local_url(url: &str) -> bool {
+    let host = url
+        .split("://")
+        .nth(1)
+        .unwrap_or(url)
+        .split('/')
+        .next()
+        .unwrap_or("")
+        .rsplit('@')
+        .next()
+        .unwrap_or("");
+    let host = host.rsplit_once(':').map_or(host, |(h, p)| {
+        // 只有末段全是数字才是端口，避免把 IPv6 地址里的冒号误当端口
+        if !p.is_empty() && p.chars().all(|c| c.is_ascii_digit()) { h } else { host }
+    });
+    let host = host.trim_start_matches('[').trim_end_matches(']').to_ascii_lowercase();
+
+    if host == "localhost" || host == "::1" || host.ends_with(".local") {
+        return true;
+    }
+    let octets: Vec<&str> = host.split('.').collect();
+    if octets.len() == 4 && octets.iter().all(|o| o.parse::<u8>().is_ok()) {
+        let a: u8 = octets[0].parse().unwrap();
+        let b: u8 = octets[1].parse().unwrap();
+        return a == 127 || a == 10 || (a == 192 && b == 168) || (a == 172 && (16..=31).contains(&b));
+    }
+    false
+}
 
 // ── Request types (from frontend) ──
 
@@ -194,18 +226,22 @@ pub async fn analyze_city(
                 .ollama_api_key
                 .as_ref()
                 .filter(|s| !s.is_empty())
-                .ok_or("Ollama API key not configured")?;
+                .cloned();
+            // 未填 URL 时：有 Key 视为云端，无 Key 视为本机自建
             let url = settings
                 .ollama_url
                 .as_deref()
                 .filter(|s| !s.is_empty())
-                .unwrap_or(OLLAMA_DEFAULT_URL);
+                .unwrap_or(if key.is_some() { OLLAMA_DEFAULT_URL } else { OLLAMA_LOCAL_URL });
             let m = settings
                 .ollama_model
                 .as_deref()
                 .filter(|s| !s.is_empty())
                 .unwrap_or(OLLAMA_DEFAULT_MODEL);
-            (url.to_string(), m.to_string(), Some(key.clone()))
+            if key.is_none() && !is_local_url(url) {
+                return Err("Ollama API key not configured".to_string());
+            }
+            (url.to_string(), m.to_string(), key)
         }
         _ => {
             // 默认走千帆
@@ -247,8 +283,8 @@ pub async fn analyze_city(
 
     tracing::info!("analyze_city provider={}, model={}", provider, model);
 
-    // 千帆/百炼是国内服务，用直连客户端；Ollama Cloud 是国际公网，走代理客户端
-    let http = if provider == "ollama" {
+    // 千帆/百炼是国内服务，本机 Ollama 是回环地址，都用直连；只有 Ollama Cloud 走代理
+    let http = if provider == "ollama" && !is_local_url(&api_url) {
         state.http.read().await.clone()
     } else {
         state.direct_http.clone()
@@ -685,18 +721,21 @@ pub async fn test_llm_connection(
                 .ollama_api_key
                 .as_ref()
                 .filter(|s| !s.is_empty())
-                .ok_or("Ollama API key not configured")?;
+                .cloned();
             let url = form
                 .ollama_url
                 .as_deref()
                 .filter(|s| !s.is_empty())
-                .unwrap_or(OLLAMA_DEFAULT_URL);
+                .unwrap_or(if key.is_some() { OLLAMA_DEFAULT_URL } else { OLLAMA_LOCAL_URL });
             let m = form
                 .ollama_model
                 .as_deref()
                 .filter(|s| !s.is_empty())
                 .unwrap_or(OLLAMA_DEFAULT_MODEL);
-            (url.to_string(), m.to_string(), Some(key.clone()))
+            if key.is_none() && !is_local_url(url) {
+                return Err("Ollama API key not configured".to_string());
+            }
+            (url.to_string(), m.to_string(), key)
         }
         _ => {
             let key = form
@@ -717,12 +756,19 @@ pub async fn test_llm_connection(
             .collect(),
         None => vec![],
     };
-    if keys.is_empty() {
-        return Err(format!("{} API key not configured", provider));
-    }
+    // 本机 Ollama 无需 Key，用一个空串占位使下面的测试循环照常跑一轮
+    let keys: Vec<String> = if keys.is_empty() {
+        if is_local_url(&api_url) {
+            vec![String::new()]
+        } else {
+            return Err(format!("{} API key not configured", provider));
+        }
+    } else {
+        keys
+    };
 
-    // 千帆/百炼是国内服务，用直连客户端；Ollama Cloud 是国际公网，走代理客户端
-    let http = if provider == "ollama" {
+    // 千帆/百炼是国内服务，本机 Ollama 是回环地址，都用直连；只有 Ollama Cloud 走代理
+    let http = if provider == "ollama" && !is_local_url(&api_url) {
         state.http.read().await.clone()
     } else {
         state.direct_http.clone()
@@ -745,13 +791,13 @@ pub async fn test_llm_connection(
         let key_start = std::time::Instant::now();
         let prefix: String = key.chars().take(8).collect();
 
-        let result = http
+        let mut req = http
             .post(&api_url)
-            .header("Content-Type", "application/json")
-            .header("Authorization", format!("Bearer {}", key))
-            .json(&chat_req)
-            .send()
-            .await;
+            .header("Content-Type", "application/json");
+        if !key.is_empty() {
+            req = req.header("Authorization", format!("Bearer {}", key));
+        }
+        let result = req.json(&chat_req).send().await;
 
         let duration_ms = key_start.elapsed().as_millis() as u64;
 
